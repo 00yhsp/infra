@@ -9,5 +9,9 @@
 # SSH Keys
 *.pem
 
+# Agent Instructions
+GEMINI.md
+AGENTS.md
+
 # Logs
 *.log
