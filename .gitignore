@@ -13,5 +13,8 @@
 GEMINI.md
 AGENTS.md
 
+# Secrets
+.env
+
 # Logs
 *.log
