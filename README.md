@@ -58,3 +58,24 @@ terraform apply -var="admin_ip=<YOUR_IP>/32"
 | `SSH_KEY` | `ssh_private_key_pem` | EC2 접속용 SSH Private Key |
 | `AWS_ACCESS_KEY_ID` | `iam_access_key_id` | 배포용 IAM User Access Key |
 | `AWS_SECRET_ACCESS_KEY` | `iam_secret_access_key` | 배포용 IAM User Secret Key |
+
+## 🔌 모듈별 SSH 접속
+
+Terraform output에 저장된 EC2 IP와 SSH private key를 사용해 모듈별 EC2에 접속할 수 있습니다. SSH key는 파일로 저장하지 않고 임시 `ssh-agent`에만 추가됩니다.
+
+접속 대상 모듈은 다음 root output 규칙을 따라야 합니다. 모듈 이름의 `-`는 output 이름에서 `_`로 바꿉니다.
+
+```hcl
+output "<module>_ec2_public_ip" {}
+output "<module>_ssh_private_key_pem" {
+  sensitive = true
+}
+```
+
+새 output을 추가한 뒤에는 `terraform apply`를 실행해 Terraform state에 output을 반영해야 합니다.
+
+```bash
+make ssh MODULE=swiftly-server
+./scripts/ssh-module swiftly-server
+./scripts/ssh-module swiftly-server -- "docker compose ps"
+```

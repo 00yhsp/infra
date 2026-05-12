@@ -4,7 +4,7 @@ ifneq (,$(wildcard ./.env))
     export
 endif
 
-.PHONY: init plan apply destroy
+.PHONY: init plan apply destroy ssh
 
 init:
 	@echo "Initializing Terraform with Cloudflare R2 backend..."
@@ -30,3 +30,6 @@ apply:
 
 destroy:
 	terraform destroy -var="admin_ip=$(shell curl -s http://checkip.amazonaws.com)/32"
+
+ssh:
+	./scripts/ssh-module $(MODULE)
