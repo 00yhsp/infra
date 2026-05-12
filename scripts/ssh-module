@@ -1,0 +1,86 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE'
+Usage:
+  scripts/ssh-module <module> [-- <ssh args>]
+
+Examples:
+  scripts/ssh-module swiftly-server
+  scripts/ssh-module swiftly-server -- -v
+  scripts/ssh-module swiftly-server -- "docker compose ps"
+
+Expected Terraform outputs:
+  <module>_ec2_public_ip
+  <module>_ssh_private_key_pem
+
+Hyphens in module names are converted to underscores for output names.
+USAGE
+}
+
+if [[ "${1:-}" == "-h" || "${1:-}" == "--help" ]]; then
+  usage
+  exit 0
+fi
+
+module="${1:-}"
+if [[ -z "$module" ]]; then
+  usage >&2
+  exit 1
+fi
+shift
+
+if [[ "${1:-}" == "--" ]]; then
+  shift
+fi
+
+output_prefix="${module//-/_}"
+host_output="${output_prefix}_ec2_public_ip"
+key_output="${output_prefix}_ssh_private_key_pem"
+username="${SSH_USER:-ec2-user}"
+
+if ! command -v terraform >/dev/null 2>&1; then
+  echo "terraform is required but was not found in PATH." >&2
+  exit 1
+fi
+
+terraform_raw_output() {
+  terraform output -raw "$1" 2>/dev/null
+}
+
+if ! host="$(terraform_raw_output "$host_output")"; then
+  cat >&2 <<EOF
+Terraform output '$host_output' was not found in state.
+
+Expose this root output for module '$module', then run terraform apply:
+  output "$host_output" { ... }
+EOF
+  exit 1
+fi
+
+if ! key="$(terraform_raw_output "$key_output")"; then
+  cat >&2 <<EOF
+Terraform output '$key_output' was not found in state.
+
+Expose this root output for module '$module', then run terraform apply:
+  output "$key_output" {
+    ...
+    sensitive = true
+  }
+EOF
+  exit 1
+fi
+
+if [[ -z "$host" ]]; then
+  echo "Terraform output '$host_output' is empty." >&2
+  exit 1
+fi
+
+agent_env="$(ssh-agent -s)"
+eval "$agent_env" >/dev/null
+trap 'ssh-agent -k >/dev/null' EXIT
+
+printf '%s\n' "$key" | ssh-add -q - >/dev/null
+
+ssh "$username@$host" "$@"
